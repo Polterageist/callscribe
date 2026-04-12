@@ -1,14 +1,50 @@
 # Callscribe
 
-> Automatic call recording with perfect-quality transcription. Cross-platform. Plugin-based.
+> Automatic call recording with perfect-quality transcription. Plugin-based STT routing with local + remote providers and feedback loops.
+
+Open source. Built live on stream.
 
 ---
 
 ## The Idea
 
-When a call starts — on mobile or desktop — Callscribe detects it, starts recording automatically (or on manual trigger), and produces a high-quality transcript. The primary source (audio, optionally screen) is always preserved. Transcription quality is maximized through a combination of fast local models, powerful remote backends, and feedback loops.
+When a call starts, Callscribe detects it, starts recording automatically (or on manual trigger), and produces a high-quality transcript. The primary source — raw audio — is always preserved. Transcription quality is maximized through a combination of fast local models, powerful remote backends, and feedback loops that improve routing over time.
 
-Output goes wherever you tell it: a file, Obsidian vault, Notion, a webhook, or a custom plugin.
+Output goes wherever you tell it: a Markdown file, Obsidian vault, Notion, a webhook, or a custom plugin.
+
+---
+
+## Roadmap
+
+### v1 — Windows, system tray *(first stream)*
+
+Working prototype for Windows:
+- System tray app + background service
+- Auto-detects call apps by process name (Google Meet, Telemost, Zoom, Teams, ...)
+- Records system audio + mic via WASAPI loopback
+- Runs `faster-whisper` locally → timestamps + logprobs
+- Routes low-confidence segments to remote provider (OpenAI Whisper API)
+- Saves transcript as `.md` to a configured folder
+
+Stack: **Python** — `psutil`, `soundcard`, `faster-whisper`, `pystray`, `openai`
+
+### v2 — Engine refactor + output plugins
+
+- Extract Engine as a clean module with no UI/OS dependencies
+- Output plugin interface: file, Obsidian, Notion, webhook
+- Config file (TOML/YAML) for process list, thresholds, destinations
+- Feedback loop: corrections logged → threshold calibration
+
+### v3 — Cross-platform GUI
+
+- Flutter desktop (Windows, macOS, Linux)
+- Transcript viewer with inline edit
+- Provider plugin management UI
+
+### v4 — Mobile
+
+- Android (`TelecomManager` + `AudioRecord`)
+- iOS (`CallKit` + `AVAudioEngine`)
 
 ---
 
@@ -18,216 +54,225 @@ Output goes wherever you tell it: a file, Obsidian vault, Notion, a webhook, or 
 
 ```
 ┌─────────────────────────────────┐
-│           GUI Layer             │  Flutter (or React Native)
-│  (platform UI, manual trigger,  │  — iOS, Android, Windows, macOS, Linux
-│   transcript viewer, settings)  │
+│           GUI Layer             │  v1: system tray (pystray)
+│  (tray icon, manual trigger,    │  v3+: Flutter desktop
+│   status, settings)             │  v4+: mobile (iOS/Android)
 └────────────────┬────────────────┘
                  │
 ┌────────────────▼────────────────┐
 │         Platform Layer          │  OS-specific adapters
-│  (call detection, audio/screen  │  — phone API hooks (mobile)
-│   capture, notifications,       │  — audio session monitor (desktop)
-│   permissions)                  │  — screen capture (optional)
+│  (process monitor, audio        │  v1: Windows — psutil + WASAPI
+│   capture, notifications)       │  v3+: macOS, Linux
+│                                 │  v4+: Android, iOS
 └────────────────┬────────────────┘
                  │
 ┌────────────────▼────────────────┐
 │         Engine (Core)           │  Platform-agnostic business logic
-│  (routing, decisions, quality   │  — pure Dart / Rust / Go (TBD)
-│   assessment, feedback loops,   │  — no OS dependencies
-│   storage, plugin registry)     │
+│  (routing, quality assessment,  │  No OS or UI dependencies
+│   feedback loops, storage,      │  v1: Python module
+│   plugin registry)              │  v3+: extracted, potentially Rust
 └────────────────┬────────────────┘
                  │
-┌────────────────▼────────────────┐
-│      STT Provider Plugins       │  Plugin interface, swappable
-│  (Whisper local, Whisper remote,│  — each plugin: transcribe(audio) → transcript
-│   Deepgram, Google, OpenAI,     │  — metadata: latency, confidence, cost
-│   custom backends)              │
-└─────────────────────────────────┘
+    ┌────────────┴────────────┐
+    │                         │
+┌───▼──────────┐   ┌──────────▼──────┐
+│ STT Plugins  │   │  Output Plugins  │
+│ local Whisper│   │  file, Obsidian  │
+│ OpenAI API   │   │  Notion, webhook │
+│ Deepgram ... │   │  custom          │
+└──────────────┘   └─────────────────┘
 ```
 
 ---
 
 ### Engine — Core Responsibilities
 
-The Engine is the brain. It is completely decoupled from OS and UI.
+The Engine is the brain. Completely decoupled from OS and UI.
 
 **1. Recording Orchestration**
-- Receives "call started / stopped" events from the Platform Layer
-- Controls the recording session lifecycle
-- Stores raw audio (primary source, never discarded)
+- Receives `call_started` / `call_stopped` events from the Platform Layer
+- Controls session lifecycle, stores raw audio (never discarded)
 
 **2. STT Routing**
-- Decides which providers to invoke, in what order, with what audio segment
-- Default strategy:
-  1. Fast local Whisper → timestamps + basic markup + confidence score per segment
-  2. Quality assessment: if `confidence < threshold` for a segment → delegate that segment to a powerful remote provider
-  3. Merge results: local timestamps + remote quality text → final transcript
-- Strategy is configurable and extensible
+- Default pipeline:
+  1. `faster-whisper` local → segments with timestamps + logprobs (confidence per token)
+  2. Per-segment quality assessment: `avg_logprob`, `no_speech_prob`, word-level confidence
+  3. Low-confidence segments → escalated to remote provider
+  4. Merge: local timestamps + remote text quality → final transcript
+- Strategy is configurable
 
 **3. Quality Assessment**
-- Per-segment confidence scoring (from Whisper logprobs or heuristics)
-- Detects: background noise, overlapping speakers, low-confidence words
-- Routes only the problematic segments upstream (cost-efficient)
+- Per-segment metrics from `faster-whisper`: `avg_logprob`, `no_speech_prob`, `compression_ratio`
+- Detects: background noise, crosstalk, garbled audio
+- Only problematic segments hit the remote API — cost-efficient
 
 **4. Feedback Loops**
-- User corrections on the transcript are logged
-- Correction patterns update routing thresholds and segment-level confidence calibration
-- Over time: fewer segments escalated to remote, lower cost, same quality
+- User corrections on transcripts are logged
+- Correction patterns calibrate per-provider confidence thresholds
+- Over time: fewer escalations, lower cost, same or better quality
 
-**5. Plugin Registry**
-- Plugins implement a standard interface:
-  ```
-  interface STTProvider {
-    transcribe(audio: AudioSegment, options: Options): TranscriptResult
-    metadata: { latency: Latency, cost: Cost, capabilities: Capability[] }
-  }
-  ```
-- Engine selects providers by capability (timestamps, diarization, language, cost ceiling)
+**5. Plugin Interface — STT Providers**
 
-**6. Output Routing**
-- Transcript delivered to configured destinations via output plugins:
-  - Local file (plain text, JSON, SRT, Markdown)
-  - Obsidian vault
-  - Notion / Confluence
-  - Webhook
-  - Custom
+```python
+class STTProvider(Protocol):
+    name: str
+    capabilities: set[Capability]  # TIMESTAMPS, DIARIZATION, LANGUAGES...
 
----
-
-### Platform Layer — OS Adapters
-
-Each platform implements the same adapter interface:
-
-```
-interface PlatformAdapter {
-  onCallStarted(callback)
-  onCallEnded(callback)
-  startAudioCapture(): AudioStream
-  stopAudioCapture()
-  startScreenCapture(): ScreenStream   // optional
-}
+    def transcribe(
+        self,
+        audio: AudioSegment,
+        options: TranscribeOptions,
+    ) -> TranscriptResult: ...
 ```
 
-Platform implementations:
-| Platform | Call Detection | Audio Capture |
-|----------|---------------|---------------|
-| Android | `TelecomManager` / `CallLog` observer | `AudioRecord`, `MediaProjection` |
-| iOS | `CallKit` | `AVAudioEngine` |
-| macOS | Audio session observer | `AVCaptureSession` / `ScreenCaptureKit` |
-| Windows | `WASAPI` / Windows Phone Link hooks | `WASAPI loopback` |
-| Linux | PulseAudio / PipeWire monitor source | same |
+**6. Plugin Interface — Output Destinations**
+
+```python
+class OutputDestination(Protocol):
+    def deliver(self, recording: Recording, transcript: Transcript) -> None: ...
+```
+
+Built-in destinations: local Markdown file, Obsidian vault (drop into folder), webhook POST, stdout.
 
 ---
 
 ### Transcription Pipeline
 
 ```
-Audio (raw, preserved)
+Audio (raw, always preserved)
         │
         ▼
-┌───────────────────┐
-│  Local Whisper    │  fast, offline, timestamps, logprobs
-│  (base/small)     │
-└────────┬──────────┘
-         │
-         ▼
-  Per-segment confidence?
-         │
-    ┌────┴────┐
-high│         │low / noisy
-    ▼         ▼
-  Accept   Remote Provider
-  segment  (Whisper large /
-           Deepgram / OpenAI)
-    │         │
-    └────┬────┘
-         ▼
-   Merge & align
-   (timestamps from local,
-    text quality from remote)
-         │
-         ▼
-  Post-processing
-  (speaker diarization,
-   punctuation, formatting)
-         │
-         ▼
-   Final Transcript
-   → Output destinations
+┌─────────────────────┐
+│   faster-whisper    │  local, offline
+│   (small / medium)  │  → segments: text + timestamps + avg_logprob
+└──────────┬──────────┘
+           │
+    per-segment quality check
+    (avg_logprob, no_speech_prob)
+           │
+      ┌────┴────┐
+ high │         │ low / uncertain
+      ▼         ▼
+   Accept    Remote Provider
+   segment   (OpenAI Whisper /
+              Deepgram / custom)
+      │         │
+      └────┬────┘
+           ▼
+     Merge & align
+     (local timestamps + remote text)
+           │
+           ▼
+    Post-processing
+    (speaker diarization opt.,
+     punctuation, Markdown formatting)
+           │
+           ▼
+     Final Transcript
+     → Output destinations
 ```
 
 ---
 
-### Data Model (Core)
+### Platform Layer — v1 Windows
 
+```python
+class WindowsPlatformAdapter:
+    # Process monitor
+    CALL_PROCESSES = [
+        "chrome.exe",       # Google Meet
+        "teams.exe",        # Microsoft Teams
+        "zoom.exe",         # Zoom
+        "telemost.exe",     # Yandex Telemost
+        "discord.exe",      # Discord calls
+        "skype.exe",
+    ]
+
+    def watch(self, on_call_started, on_call_stopped) -> None:
+        # psutil poll loop — detects process appear/disappear
+        ...
+
+    def start_audio_capture(self) -> AudioStream:
+        # soundcard — WASAPI loopback (system) + mic mixed
+        ...
 ```
-Recording
-  id: UUID
-  started_at: DateTime
-  ended_at: DateTime
-  participants: [Participant]
-  audio_path: Path            // raw audio, always kept
-  screen_path: Path?          // optional screen capture
-  transcripts: [Transcript]
 
-Transcript
-  id: UUID
-  created_at: DateTime
-  provider_log: [ProviderEntry]
-  segments: [Segment]
-  confidence_avg: Float
+Full platform adapter interface (for future ports):
 
-Segment
-  start_ms: Int
-  end_ms: Int
-  speaker: Speaker?
-  text: String
-  confidence: Float
-  provider: String            // which STT produced this segment
-
-ProviderEntry
-  provider: String
-  segments_sent: Int
-  latency_ms: Int
-  cost_units: Float
+```python
+class PlatformAdapter(Protocol):
+    def watch(self, on_call_started, on_call_stopped) -> None: ...
+    def start_audio_capture(self) -> AudioStream: ...
+    def stop_audio_capture(self) -> None: ...
+    def start_screen_capture(self) -> ScreenStream | None: ...  # optional
 ```
 
 ---
 
-### GUI
+### Data Model
 
-Flutter (primary candidate) or React Native. Single codebase for iOS, Android, macOS, Windows, Linux.
+```python
+@dataclass
+class Recording:
+    id: str                      # UUID
+    started_at: datetime
+    ended_at: datetime | None
+    audio_path: Path             # raw audio, always kept
+    screen_path: Path | None     # optional
+    transcripts: list[Transcript]
 
-Screens:
-- **Dashboard** — recent calls, recording status indicator, manual record button
-- **Transcript Viewer** — segments with timestamps, speaker labels, inline edit (corrections fed back to engine)
-- **Settings** — provider plugins (enable/disable, API keys, thresholds), output destinations, storage
-- **Recording** — live waveform, elapsed time, manual stop
+@dataclass
+class Transcript:
+    id: str
+    created_at: datetime
+    segments: list[Segment]
+    provider_log: list[ProviderEntry]
+    confidence_avg: float
+
+@dataclass
+class Segment:
+    start_ms: int
+    end_ms: int
+    text: str
+    confidence: float            # avg_logprob normalized
+    provider: str                # "faster-whisper" | "openai" | ...
+    speaker: str | None          # diarization, optional
+
+@dataclass
+class ProviderEntry:
+    provider: str
+    segments_sent: int
+    latency_ms: int
+    tokens_used: int | None
+```
 
 ---
 
-## Tech Stack (proposed)
+## Tech Stack
 
-| Component | Candidate | Notes |
-|-----------|-----------|-------|
-| GUI | Flutter | Best cross-platform audio/permission support |
-| Engine | Dart (in Flutter) or Rust FFI | Rust if heavy processing needed |
-| Local Whisper | `whisper.cpp` via FFI | Runs on-device, no network |
-| Remote STT | Plugin (Deepgram, OpenAI, custom) | Pay-per-use, quality ceiling |
-| Storage | SQLite + local filesystem | Simple, offline-first |
-| Output plugins | Dart interface + impl per destination | Obsidian, file, webhook |
+| Component | v1 | v3+ |
+|-----------|-----|-----|
+| Language | Python | Python + Rust (engine) |
+| GUI | `pystray` + `Pillow` (tray) | Flutter desktop |
+| Process detection | `psutil` | platform adapters |
+| Audio capture | `soundcard` (WASAPI loopback) | platform adapters |
+| Local STT | `faster-whisper` | same |
+| Remote STT | `openai` (Whisper API) | plugin, swappable |
+| Storage | local filesystem + JSON | SQLite |
+| Config | TOML | same |
+| Output | Markdown file | plugin (Obsidian, Notion, webhook) |
 
 ---
 
 ## Non-Goals (v1)
 
-- Real-time streaming transcription (batch per call is sufficient initially)
+- Real-time streaming transcription (batch per session is sufficient)
 - Multi-user / cloud sync
-- Web app
-- Paid subscription model
+- Mobile (v4)
+- Paid model — this is open source
 
 ---
 
 ## Status
 
-`idea` — architecture proposal, no code yet.
+`in development` — v1 being built live on stream.
