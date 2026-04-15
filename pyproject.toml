@@ -8,6 +8,9 @@ packages = [{ include = "callscribe", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
+pystray = "^0.19.5"
+pillow = "^12.2.0"
+tomlkit = "^0.14.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"

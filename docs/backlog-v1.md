@@ -108,6 +108,15 @@ Backlog v1 составлен **строго по** `README.md` (Roadmap → **v
 - **E9.S2 [must]** As a user, I want the app to never discard raw audio, so that I can always recover the primary source.
 - **E9.S3 [must]** As a user, I want clear error states surfaced in the tray state, so that I know when intervention is needed.
 
+### E10 — Epic: Localization (i18n/l10n)
+
+#### Stories
+
+- **E10.S1 [should]** As a user, I want tray UI strings (menu items, tooltips, short errors) to be localizable, so that the app can be used in my language.
+- **E10.S2 [should]** As a user, I want to choose the app language (RU/EN) via configuration, so that I can switch without reinstalling.
+- **E10.S3 [nice]** As a user, I want dates/times/numbers to follow my locale conventions, so that exported metadata and UI text look natural.
+- **E10.S4 [nice]** As a maintainer, I want a simple translation workflow (string keys + resource files), so that adding a new language is low-friction.
+
 ## Out of scope (Non-goals v1)
 
 - Real-time streaming transcription (batch per session is sufficient)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 class AppState(str, Enum):
@@ -82,10 +82,13 @@ class AppController:
             self._publish_state()
             return
 
+        # Prevent duplicate scheduling if Start is clicked twice quickly.
+        # Keep it non-blocking: we only change state + UI, recorder.start() still runs on executor.
+        self._state = AppState.RECORDING
+        self._publish_state()
+
         def do_start() -> None:
             self._recorder.start()
-            self._state = AppState.RECORDING
-            self._publish_state()
 
         self._executor.submit(do_start)
 
@@ -99,6 +102,19 @@ class AppController:
             self._publish_state()
 
         self._executor.submit(do_stop)
+
+    def handle_quit(self) -> None:
+        if self._state == AppState.RECORDING:
+            def do_quit_after_stop() -> None:
+                self._recorder.stop()
+                self._state = AppState.IDLE
+                self._publish_state()
+                self._tray.stop()
+
+            self._executor.submit(do_quit_after_stop)
+            return
+
+        self._tray.stop()
 
     def _menu_snapshot(self) -> MenuSnapshot:
         match self._state:
@@ -114,6 +130,22 @@ class AppController:
 
     def _publish_state(self) -> None:
         self._tray.set_menu(self._menu_snapshot())
+        self._tray.set_tooltip(self._tooltip_text())
+
+    def _tooltip_text(self) -> str:
+        match self._state:
+            case AppState.IDLE:
+                return "Idle"
+            case AppState.RECORDING:
+                return "Recording"
+            case AppState.ERROR:
+                return "Error"
+            case AppState.NEEDS_SETUP:
+                return "Needs_setup"
+            case AppState.TRANSCRIBING:
+                return "Transcribing"
+            case _:
+                return str(self._state)
 
 
 def create_app(
