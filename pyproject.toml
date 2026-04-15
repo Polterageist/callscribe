@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "callscribe"
+version = "0.1.0"
+description = "Callscribe v1 Windows tray app (single-process)."
+authors = ["Callscribe contributors"]
+readme = "README.md"
+packages = [{ include = "callscribe", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-mock = "^3.14.0"
+ruff = "^0.12.0"
+mypy = "^1.17.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = ["src"]
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
