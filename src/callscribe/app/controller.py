@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol, runtime_checkable
+from typing import Callable, Protocol, runtime_checkable
 
 
 class AppState(str, Enum):
@@ -61,20 +61,59 @@ class AppController:
         self._recorder = recorder
         self._executor = executor
 
-        self._state: AppState = AppState.IDLE
+        self._state = AppState.IDLE
+        if self._config.get_output_folder() is None:
+            self._state = AppState.NEEDS_SETUP
+
+        self._publish_state()
 
     @property
     def state(self) -> AppState:
         return self._state
 
     def start(self) -> None:
-        raise NotImplementedError
+        self._tray.run()
 
     def handle_start(self) -> None:
-        raise NotImplementedError
+        if self._state != AppState.IDLE:
+            return
+        if self._config.get_output_folder() is None:
+            self._state = AppState.NEEDS_SETUP
+            self._publish_state()
+            return
+
+        def do_start() -> None:
+            self._recorder.start()
+            self._state = AppState.RECORDING
+            self._publish_state()
+
+        self._executor.submit(do_start)
 
     def handle_stop(self) -> None:
-        raise NotImplementedError
+        if self._state != AppState.RECORDING:
+            return
+
+        def do_stop() -> None:
+            self._recorder.stop()
+            self._state = AppState.IDLE
+            self._publish_state()
+
+        self._executor.submit(do_stop)
+
+    def _menu_snapshot(self) -> MenuSnapshot:
+        match self._state:
+            case AppState.IDLE:
+                return MenuSnapshot(start_enabled=True, stop_enabled=False)
+            case AppState.RECORDING:
+                return MenuSnapshot(start_enabled=False, stop_enabled=True)
+            case AppState.NEEDS_SETUP:
+                return MenuSnapshot(start_enabled=False, stop_enabled=False)
+            case _:
+                # Conservative defaults for states not covered by E1 tests yet.
+                return MenuSnapshot(start_enabled=False, stop_enabled=False)
+
+    def _publish_state(self) -> None:
+        self._tray.set_menu(self._menu_snapshot())
 
 
 def create_app(
