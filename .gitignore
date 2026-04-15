@@ -1,0 +1,8 @@
+# IDE/editor
+.vscode/
+.idea/
+
+# OS junk
+Thumbs.db
+Desktop.ini
+
