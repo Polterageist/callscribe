@@ -1,12 +1,18 @@
 # Bugs
 
-## Double launch starts two instances
+## Epic E1 — App lifecycle & single-instance
+
+### E1-B1 — Double launch starts two instances
 
 - **Symptom**: starting Callscribe twice results in **two running instances** (two tray icons / two processes).
 - **Expected**: single-instance behavior; the second launch should focus/activate the existing instance or exit with a clear message.
 - **Notes**: likely requires a single-instance lock (mutex / lockfile + IPC/activation).
+- **Automation**: regression covered by `tests/integration/test_app_startup.py`.
+- **Status**: fixed (single-instance guard + activation on second launch).
 
-## Folder picker window becomes unresponsive
+## Epic E2 — Settings UI & dialogs (Tk / pystray integration)
+
+### E2-B1 — Folder picker window becomes unresponsive
 
 - **Symptom**: the **directory selection window opens**, but afterwards **none of its controls work**, including close (X).
 - **Expected**: folder picker should be interactive and closable; after selection/cancel, the app should return to tray normally.

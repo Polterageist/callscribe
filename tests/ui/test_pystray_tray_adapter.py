@@ -17,7 +17,12 @@ class CreatedIcon:
 
 
 class FakeMenuItem:
-    def __init__(self, text: str, action: Callable[[], None], enabled: Callable[[], bool] | bool = True) -> None:
+    def __init__(
+        self,
+        text: str,
+        action: Callable[[], None],
+        enabled: Callable[[], bool] | bool = True,
+    ) -> None:
         self.text = text
         self.action = action
         self.enabled = enabled
@@ -31,7 +36,12 @@ class FakeIcon:
     created: CreatedIcon | None = None
 
     def __init__(self, name: str, icon: Any, title: str, menu: Any) -> None:
-        FakeIcon.created = CreatedIcon(name=name, title=title, icon=icon, menu=menu)
+        FakeIcon.created = CreatedIcon(
+            name=name,
+            title=title,
+            icon=icon,
+            menu=menu,
+        )
         self.title = title
         self.menu = menu
         self.run_called = False
@@ -52,7 +62,19 @@ def test_adapter_builds_menu_and_updates_enabled(monkeypatch: pytest.MonkeyPatch
     # Arrange: monkeypatch pystray primitives inside our adapter module
     import callscribe.tray.pystray_tray as mod
 
-    monkeypatch.setattr(mod, "pystray", type("Pystray", (), {"Icon": FakeIcon, "Menu": FakeMenu, "MenuItem": FakeMenuItem}))
+    monkeypatch.setattr(
+        mod,
+        "pystray",
+        type(
+            "Pystray",
+            (),
+            {
+                "Icon": FakeIcon,
+                "Menu": FakeMenu,
+                "MenuItem": FakeMenuItem,
+            },
+        ),
+    )
 
     clicks: list[str] = []
 
@@ -85,7 +107,13 @@ def test_adapter_builds_menu_and_updates_enabled(monkeypatch: pytest.MonkeyPatch
     assert created is not None
 
     labels = [item.text for item in created.menu]
-    assert labels == ["Start recording", "Stop recording", "Open output folder", "Settings…", "Quit"]
+    assert labels == [
+        "Start recording",
+        "Stop recording",
+        "Open output folder",
+        "Settings…",
+        "Quit",
+    ]
 
     # Enabled flags should reflect snapshot via callables
     start_item = created.menu[0]
@@ -110,7 +138,19 @@ def test_adapter_builds_menu_and_updates_enabled(monkeypatch: pytest.MonkeyPatch
 def test_adapter_sets_tooltip_and_run_stop(monkeypatch: pytest.MonkeyPatch) -> None:
     import callscribe.tray.pystray_tray as mod
 
-    monkeypatch.setattr(mod, "pystray", type("Pystray", (), {"Icon": FakeIcon, "Menu": FakeMenu, "MenuItem": FakeMenuItem}))
+    monkeypatch.setattr(
+        mod,
+        "pystray",
+        type(
+            "Pystray",
+            (),
+            {
+                "Icon": FakeIcon,
+                "Menu": FakeMenu,
+                "MenuItem": FakeMenuItem,
+            },
+        ),
+    )
 
     adapter = mod.PystrayTrayAdapter(
         on_start=lambda: None,

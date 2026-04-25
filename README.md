@@ -6,6 +6,57 @@ Open source. Built live on stream.
 
 ---
 
+## Getting started (dev)
+
+### Prerequisites
+
+- Python **3.12+**
+- [Poetry](https://python-poetry.org/) (dependency + venv management)
+
+### Install
+
+```bash
+poetry install
+```
+
+### Run (tray app)
+
+```bash
+poetry run python -m callscribe
+```
+
+### Logs
+
+- **Default**: logs go to a file:
+  - Windows: `%APPDATA%/Callscribe/logs/callscribe.log`
+  - Other OS: `~/.callscribe/logs/callscribe.log`
+- **Console output**: enable stream logging via env flag:
+
+```bash
+CALLSCRIBE_LOG_STDOUT=1 poetry run python -m callscribe
+```
+
+### Tests
+
+```bash
+poetry run pytest
+```
+
+Test layout:
+
+- `tests/unit/` — fast isolated logic
+- `tests/ui/` — adapter / toolkit wiring with fakes
+- `tests/integration/` — subprocess / multi-process seams
+
+### Lint / types
+
+```bash
+poetry run ruff check .
+poetry run mypy .
+```
+
+---
+
 ## The Idea
 
 When a call starts, Callscribe detects it, starts recording automatically (or on manual trigger), and produces a high-quality transcript. The primary source — raw audio — is always preserved. Transcription quality is maximized through a combination of fast local models, powerful remote backends, and feedback loops that improve routing over time.

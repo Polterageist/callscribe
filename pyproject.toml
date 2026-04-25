@@ -19,7 +19,7 @@ ruff = "^0.12.0"
 mypy = "^1.17.0"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/ui", "tests/integration"]
 pythonpath = ["src"]
 
 [tool.ruff]
