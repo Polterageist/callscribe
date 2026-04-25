@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 
@@ -28,7 +29,7 @@ class FakeMenuItem:
         self.enabled = enabled
 
 
-class FakeMenu(tuple):
+class FakeMenu(tuple[FakeMenuItem, ...]):
     pass
 
 
@@ -165,8 +166,10 @@ def test_adapter_sets_tooltip_and_run_stop(monkeypatch: pytest.MonkeyPatch) -> N
     assert FakeIcon.created.title == "Idle"
 
     adapter.run()
-    assert adapter._icon.run_called is True  # type: ignore[attr-defined]
+    icon = adapter._icon
+    assert isinstance(icon, FakeIcon)
+    assert icon.run_called is True
 
     adapter.stop()
-    assert adapter._icon.stop_called is True  # type: ignore[attr-defined]
+    assert icon.stop_called is True
 

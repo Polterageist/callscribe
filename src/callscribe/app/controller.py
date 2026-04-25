@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol, runtime_checkable
@@ -21,7 +22,7 @@ class MenuSnapshot:
 
 @runtime_checkable
 class Executor(Protocol):
-    def submit(self, fn) -> None: ...
+    def submit(self, fn: Callable[[], None]) -> None: ...
 
 
 @runtime_checkable

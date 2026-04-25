@@ -43,11 +43,12 @@ def _start_callscribe(*, repo_root: Path, run_for_ms: int) -> RunningProcess:
         stderr=subprocess.STDOUT,
     )
     assert proc.stdout is not None
+    stdout = proc.stdout
 
     lines: list[str] = []
 
     def reader() -> None:
-        for line in proc.stdout:
+        for line in stdout:
             lines.append(line.rstrip("\n"))
 
     t = threading.Thread(target=reader, daemon=True)
