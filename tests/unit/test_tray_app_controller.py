@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-import pytest
-
 from callscribe.app.controller import AppState, MenuSnapshot, create_app
 
 
@@ -90,7 +88,10 @@ def test_missing_output_folder_puts_app_into_needs_setup_and_disables_controls()
     )
 
     assert app.state == AppState.NEEDS_SETUP
-    assert tray.menus[-1] == MenuSnapshot(start_enabled=False, stop_enabled=False)
+    assert tray.menus[-1] == MenuSnapshot(
+        start_enabled=False,
+        stop_enabled=False,
+    )
     assert tray.tooltips[-1] == "Needs_setup"
 
 
@@ -106,7 +107,10 @@ def test_manual_start_stop_updates_state_and_menu_without_blocking_ui_thread() -
     )
 
     assert app.state == AppState.IDLE
-    assert tray.menus[-1] == MenuSnapshot(start_enabled=True, stop_enabled=False)
+    assert tray.menus[-1] == MenuSnapshot(
+        start_enabled=True,
+        stop_enabled=False,
+    )
     assert tray.tooltips[-1] == "Idle"
 
     app.handle_start()
@@ -116,7 +120,10 @@ def test_manual_start_stop_updates_state_and_menu_without_blocking_ui_thread() -
 
     assert recorder.start_called == 1
     assert app.state == AppState.RECORDING
-    assert tray.menus[-1] == MenuSnapshot(start_enabled=False, stop_enabled=True)
+    assert tray.menus[-1] == MenuSnapshot(
+        start_enabled=False,
+        stop_enabled=True,
+    )
     assert tray.tooltips[-1] == "Recording"
 
     app.handle_stop()
@@ -125,7 +132,10 @@ def test_manual_start_stop_updates_state_and_menu_without_blocking_ui_thread() -
 
     assert recorder.stop_called == 1
     assert app.state == AppState.IDLE
-    assert tray.menus[-1] == MenuSnapshot(start_enabled=True, stop_enabled=False)
+    assert tray.menus[-1] == MenuSnapshot(
+        start_enabled=True,
+        stop_enabled=False,
+    )
     assert tray.tooltips[-1] == "Idle"
 
 
