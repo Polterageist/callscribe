@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+from typing import cast
 
 from callscribe.app.controller import AppState, MenuSnapshot, create_app
 
@@ -11,7 +12,7 @@ class FakeExecutor:
         self._queue: list[Callable[[], None]] = []
         self.submit_called = 0
 
-    def submit(self, fn) -> None:
+    def submit(self, fn: Callable[[], None]) -> None:
         self.submit_called += 1
         self._queue.append(fn)
 
@@ -106,7 +107,7 @@ def test_manual_start_stop_updates_state_and_menu_without_blocking_ui_thread() -
         executor=executor,
     )
 
-    assert app.state == AppState.IDLE
+    assert app.state.value == AppState.IDLE.value
     assert tray.menus[-1] == MenuSnapshot(
         start_enabled=True,
         stop_enabled=False,
@@ -119,7 +120,7 @@ def test_manual_start_stop_updates_state_and_menu_without_blocking_ui_thread() -
     executor.run_all()
 
     assert recorder.start_called == 1
-    assert app.state == AppState.RECORDING
+    assert cast(str, app.state.value) == AppState.RECORDING.value
     assert tray.menus[-1] == MenuSnapshot(
         start_enabled=False,
         stop_enabled=True,
@@ -131,7 +132,7 @@ def test_manual_start_stop_updates_state_and_menu_without_blocking_ui_thread() -
     executor.run_all()
 
     assert recorder.stop_called == 1
-    assert app.state == AppState.IDLE
+    assert cast(str, app.state.value) == AppState.IDLE.value
     assert tray.menus[-1] == MenuSnapshot(
         start_enabled=True,
         stop_enabled=False,

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
-import pystray
+import pystray  # type: ignore[import-untyped]
 from PIL import Image, ImageDraw
 
 from callscribe.app.controller import MenuSnapshot, TrayUI
@@ -26,7 +26,7 @@ class PystrayTrayAdapter(TrayUI):
         on_open_output_folder: Callable[[], None],
         on_settings: Callable[[], None],
         on_quit: Callable[[], None],
-        icon: Optional[Image.Image] = None,
+        icon: Image.Image | None = None,
     ) -> None:
         self._on_start = on_start
         self._on_stop = on_stop
