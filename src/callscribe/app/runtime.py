@@ -1,23 +1,45 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
 import logging
 import os
+import sys
 from collections.abc import Callable, Coroutine
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Protocol
 
 from callscribe.app.controller import AppController, Executor, RecordingService, TrayUI, create_app
+from callscribe.app.recording_service import FileRecordingService
 from callscribe.bootstrap import BootConfig
+from callscribe.config.settings import AppSettings
 from callscribe.config.store import TomlConfigStore
+from callscribe.tray.app_icon import load_tray_icon_pil
 from callscribe.tray.null_tray import NullTray
 from callscribe.tray.pystray_tray import PystrayTrayAdapter
 
 logger = logging.getLogger(__name__)
 
+_settings_tk_executor_singleton: ThreadPoolExecutor | None = None
 
-class FolderPicker(Protocol):
-    def __call__(self) -> str | None: ...
+
+def _get_settings_tk_executor() -> ThreadPoolExecutor:
+    """Single worker so all Tk runs on one thread (pystray posts from Win32 thread)."""
+    global _settings_tk_executor_singleton
+    if _settings_tk_executor_singleton is None:
+        ex = ThreadPoolExecutor(max_workers=1, thread_name_prefix="callscribe-settings-tk")
+
+        def _shutdown() -> None:
+            ex.shutdown(wait=False, cancel_futures=True)
+
+        atexit.register(_shutdown)
+        _settings_tk_executor_singleton = ex
+    return _settings_tk_executor_singleton
+
+
+class SettingsDialogFn(Protocol):
+    def __call__(self) -> AppSettings | None: ...
 
 
 @dataclass(frozen=True)
@@ -37,13 +59,13 @@ class TrayAppRuntime:
         config_store: TomlConfigStore,
         executor: Executor,
         recorder: RecordingService,
-        pick_folder: FolderPicker,
+        open_settings: SettingsDialogFn,
     ) -> None:
         self._boot = boot_config
         self._config_store = config_store
         self._executor = executor
         self._recorder = recorder
-        self._pick_folder = pick_folder
+        self._open_settings = open_settings
 
         self._loop: asyncio.AbstractEventLoop | None = None
         self._controller: AppController | None = None
@@ -58,6 +80,11 @@ class TrayAppRuntime:
     def controller(self) -> AppController:
         assert self._controller is not None
         return self._controller
+
+    def _bind_recorder_errors(self) -> None:
+        if isinstance(self._recorder, FileRecordingService):
+            assert self._controller is not None
+            self._recorder.set_error_handler(self._controller.handle_recording_error)
 
     async def run(self) -> None:
         self._loop = asyncio.get_running_loop()
@@ -77,10 +104,17 @@ class TrayAppRuntime:
             recorder=self._recorder,
             executor=self._executor,
         )
+        self._bind_recorder_errors()
 
         if self._boot.test_mode:
             self._controller.start()
             logger.info("CALLSCRIBE_READY pid=%s", os.getpid())
+            for handler in logging.getLogger("callscribe").handlers:
+                try:
+                    handler.flush()
+                except Exception:
+                    pass
+            sys.stdout.flush()
             await asyncio.sleep(max(0, self._boot.test_run_for_ms) / 1000.0)
             return
 
@@ -96,6 +130,7 @@ class TrayAppRuntime:
             on_open_output_folder=callbacks.on_open_output_folder,
             on_settings=callbacks.on_settings,
             on_quit=callbacks.on_quit,
+            icon=load_tray_icon_pil(),
         )
 
     def _sync(self, fn: Callable[[], Coroutine[object, object, None]]) -> Callable[[], None]:
@@ -118,26 +153,36 @@ class TrayAppRuntime:
 
     async def _on_open_output_folder(self) -> None:
         folder = self._config_store.get_output_folder()
-        if folder:
-            os.startfile(folder)
+        if not folder:
+            return
+
+        def _open_folder() -> None:
+            if sys.platform == "win32":
+                os.startfile(folder)
+                return
+            import subprocess
+
+            subprocess.run(["xdg-open", folder], check=False)
+
+        await asyncio.to_thread(_open_folder)
 
     async def _on_settings(self) -> None:
         if self._boot.test_mode:
             return
-        folder = self._pick_folder()
-        if not folder:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(_get_settings_tk_executor(), self._open_settings)
+        if not result:
             return
 
-        self._config_store.set_output_folder(folder)
+        self._config_store.save_settings(result)
 
-        # Re-evaluate by recreating controller state in-place (E1 minimal).
         self._controller = create_app(
             tray=self.tray,
             config_store=self._config_store,
             recorder=self._recorder,
             executor=self._executor,
         )
+        self._bind_recorder_errors()
 
     async def _on_quit(self) -> None:
         self.controller.handle_quit()
-
