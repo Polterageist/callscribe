@@ -33,7 +33,9 @@
 
 - ОС: **Windows**.
 - UI: **system tray** (например, `pystray` + `Pillow`).
+- Иконка: **bundled** `logo.svg` → трей и окно настроек; на тёмном shell Windows растр инвертируется для контраста.
 - Захват аудио: **WASAPI loopback** + микрофон.
+- В WAV: **loopback как стерео** (L/R с устройства, при многоканале — первые два канала), **микрофон в моно**, затем **дублирование в оба канала** и суммирование с loopback (не «система в левое, микрофон в правое»).
 - Стек v1 (по `README.md`): Python `psutil`, `soundcard`, `faster-whisper`, `pystray`, `openai`.
 
 ## Пользовательский опыт (UX)
@@ -45,17 +47,22 @@
 - состояние в трее отображается как `Needs_setup` (или `Error` с понятным текстом)
 - пункты **Start recording**/**Stop recording** отключены
 - доступен быстрый путь в настройку:
-  - **Settings…** открывает минимальный диалог выбора папки **или**
-  - открывает конфиг-файл в дефолтном редакторе (fallback)
+  - **Settings…** открывает окно: папка вывода, устройство loopback (системный звук), микрофон; результат сохраняется в `config.toml` (диалог и **Open output folder** выполняются вне блокировки asyncio-цикла: отдельный поток Tk и `to_thread` для открытия папки).
+  - при необходимости можно править конфиг-файл вручную (fallback)
 
 ### Меню трея (минимум)
 
 - **Start recording** (недоступно во время записи)
 - **Stop recording** (недоступно в idle)
 - **Open output folder**
-- **Settings…** (минимум: output folder; позже: processes, thresholds)
+- **Settings…** (папка вывода + loopback + микрофон; позже: processes, thresholds)
 - **Quit**
 
+### Логирование (v1)
+
+- В файл пишется подробный лог (`DEBUG`) для пространства имён `callscribe`.
+- В консоль по умолчанию — более короткий формат и уровень не ниже `INFO`; отключение консоли: переменная окружения `CALLSCRIBE_LOG_CONSOLE=0` (см. `README.md`).
+- В `CALLSCRIBE_TEST_MODE=1` поток в консоль подключается только при `CALLSCRIBE_LOG_STDOUT=1`.
 ### Индикация статуса
 
 - Иконка/tooltip отражает состояние **записи** и может дополнительно показывать фоновую **транскрипцию**.
@@ -111,7 +118,7 @@ flowchart TD
 - Если `output_folder` отсутствует/некорректен:
   - приложение переходит в `Needs_setup` (или `Error` с понятным текстом)
   - Start recording отключён
-- Settings/Open config позволяет настроить `output_folder` и сохранить конфиг.
+- Settings… позволяет настроить `output_folder`, `loopback_speaker_name`, `microphone_name` и сохранить конфиг одной записью.
 - Формат хранения: один TOML-файл (путь вида `%APPDATA%/Callscribe/config.toml` или эквивалент).
 
 ### FileStore

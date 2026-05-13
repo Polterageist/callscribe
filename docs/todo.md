@@ -1,7 +1,7 @@
 # TODOs
 
 ## Следующий стрим
-- [ ] Исправить баг E2-B1
+- [X] Исправить баг E2-B1
 
 ## Backlog
 - [ ] Перенести issues в Github и настроить project
@@ -14,3 +14,4 @@
 - [ ] Сделать single-instance activation обработчик безопасным для async (bridge из thread/socket в loop через `call_soon_threadsafe`)
 - [ ] Обновить интеграционные тесты запуска (`tests/integration/*`) под async-жизненный цикл без `time.sleep`-хаков
 - [ ] Провести глобальный рефакторинг приложения с помощью ИИ когда MVP будет готов
+- [ ] Сделать окно settings
