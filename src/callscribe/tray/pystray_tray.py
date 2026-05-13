@@ -3,18 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pystray  # type: ignore[import-untyped]
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from callscribe.app.controller import MenuSnapshot, TrayUI
-
-
-def _make_default_icon() -> Image.Image:
-    # Minimal monochrome icon that renders reliably in the tray.
-    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((8, 8, 56, 56), radius=12, fill=(0, 0, 0, 255))
-    d.text((26, 18), "C", fill=(255, 255, 255, 255))
-    return img
+from callscribe.tray.app_icon import default_tray_icon
 
 
 class PystrayTrayAdapter(TrayUI):
@@ -38,7 +30,7 @@ class PystrayTrayAdapter(TrayUI):
 
         self._icon = pystray.Icon(
             "callscribe",
-            icon or _make_default_icon(),
+            icon or default_tray_icon(),
             title="Callscribe",
             menu=self._build_menu(),
         )
