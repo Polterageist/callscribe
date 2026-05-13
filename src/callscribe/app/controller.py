@@ -63,6 +63,7 @@ class AppController:
         self._executor = executor
 
         self._state = AppState.IDLE
+        self._last_error_message: str | None = None
         if self._config.get_output_folder() is None:
             self._state = AppState.NEEDS_SETUP
 
@@ -76,15 +77,14 @@ class AppController:
         self._tray.run()
 
     def handle_start(self) -> None:
-        if self._state != AppState.IDLE:
+        if self._state not in (AppState.IDLE, AppState.ERROR):
             return
         if self._config.get_output_folder() is None:
             self._state = AppState.NEEDS_SETUP
             self._publish_state()
             return
 
-        # Prevent duplicate scheduling if Start is clicked twice quickly.
-        # Keep it non-blocking: we only change state + UI, recorder.start() still runs on executor.
+        self._last_error_message = None
         self._state = AppState.RECORDING
         self._publish_state()
 
@@ -93,12 +93,18 @@ class AppController:
 
         self._executor.submit(do_start)
 
+    def handle_recording_error(self, message: str) -> None:
+        self._last_error_message = message[:400]
+        self._state = AppState.ERROR
+        self._publish_state()
+
     def handle_stop(self) -> None:
         if self._state != AppState.RECORDING:
             return
 
         def do_stop() -> None:
             self._recorder.stop()
+            self._last_error_message = None
             self._state = AppState.IDLE
             self._publish_state()
 
@@ -108,6 +114,7 @@ class AppController:
         if self._state == AppState.RECORDING:
             def do_quit_after_stop() -> None:
                 self._recorder.stop()
+                self._last_error_message = None
                 self._state = AppState.IDLE
                 self._publish_state()
                 self._tray.stop()
@@ -125,8 +132,9 @@ class AppController:
                 return MenuSnapshot(start_enabled=False, stop_enabled=True)
             case AppState.NEEDS_SETUP:
                 return MenuSnapshot(start_enabled=False, stop_enabled=False)
+            case AppState.ERROR:
+                return MenuSnapshot(start_enabled=True, stop_enabled=False)
             case _:
-                # Conservative defaults for states not covered by E1 tests yet.
                 return MenuSnapshot(start_enabled=False, stop_enabled=False)
 
     def _publish_state(self) -> None:
@@ -140,6 +148,11 @@ class AppController:
             case AppState.RECORDING:
                 return "Recording"
             case AppState.ERROR:
+                if self._last_error_message:
+                    short = self._last_error_message.replace("\n", " ")
+                    if len(short) > 120:
+                        short = short[:117] + "..."
+                    return f"Error: {short}"
                 return "Error"
             case AppState.NEEDS_SETUP:
                 return "Needs_setup"
@@ -157,4 +170,3 @@ def create_app(
     executor: Executor,
 ) -> AppController:
     return AppController(tray=tray, config_store=config_store, recorder=recorder, executor=executor)
-
