@@ -25,16 +25,21 @@ poetry install
 poetry run python -m callscribe
 ```
 
+Bundled `src/callscribe/resources/logo.svg` is used for the tray icon and the Settings window; on Windows with a **dark shell** (dark taskbar), the rasterized icon is **inverted** so it stays visible.
+
 ### Logs
 
-- **Default**: logs go to a file:
+- **File (verbose)**: always written at **DEBUG** for the `callscribe` logger tree, with full context (timestamp, level, logger name, line).
   - Windows: `%APPDATA%/Callscribe/logs/callscribe.log`
   - Other OS: `~/.callscribe/logs/callscribe.log`
-- **Console output**: enable stream logging via env flag:
+- **Console (lighter)**: enabled by default in normal runs at **INFO** with a short format (`LEVEL message`). Disable with:
 
 ```bash
-CALLSCRIBE_LOG_STDOUT=1 poetry run python -m callscribe
+CALLSCRIBE_LOG_CONSOLE=0 poetry run python -m callscribe
 ```
+
+- **Automated test subprocess mode** (`CALLSCRIBE_TEST_MODE=1`): console logging is only attached when **`CALLSCRIBE_LOG_STDOUT=1`** (so integration tests stay quiet unless they opt in).
+- **Integration tests** may set **`CALLSCRIBE_INSTANCE_ID`** to a unique value so single-instance locking does not collide with a normal tray session using the default `callscribe` id.
 
 ### Tests
 
