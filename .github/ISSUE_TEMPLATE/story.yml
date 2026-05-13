@@ -1,0 +1,51 @@
+name: Backlog story
+description: User story from docs/backlog-v1.md
+title: "[Story] "
+labels:
+  - backlog-v1
+body:
+  - type: markdown
+    attributes:
+      value: |
+        From [docs/backlog-v1.md](https://github.com/Polterageist/callscribe/blob/main/docs/backlog-v1.md).
+        Link this issue as a **sub-issue** of the parent epic, then add it to Project **Callscribe** and set **Priority** (P0 = must, P1 = should, P2 = nice).
+  - type: input
+    id: story_id
+    attributes:
+      label: Story id
+      placeholder: E3.S2
+    validations:
+      required: true
+  - type: dropdown
+    id: rubric
+    attributes:
+      label: Backlog rubric (set Project Priority to match)
+      description: "Project Callscribe: must → P0, should → P1, nice → P2"
+      options:
+        - must
+        - should
+        - nice
+    validations:
+      required: true
+  - type: input
+    id: parent_epic
+    attributes:
+      label: Parent epic
+      description: Epic issue number or URL
+      placeholder: "42"
+    validations:
+      required: false
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User story
+      description: Full “As a user…” sentence
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance notes
+      description: Optional criteria, edge cases
+    validations:
+      required: false
