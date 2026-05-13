@@ -11,6 +11,9 @@ python = ">=3.12,<4.0"
 pystray = "^0.19.5"
 pillow = "^12.2.0"
 tomlkit = "^0.14.0"
+soundcard = "^0.4.6"
+numpy = "^2.4.4"
+cairosvg = "^2.7.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"
@@ -33,6 +36,10 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.12"
 strict = true
 mypy_path = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["soundcard", "cairosvg", "cairocffi", "cssselect2"]
+ignore_missing_imports = true
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]
