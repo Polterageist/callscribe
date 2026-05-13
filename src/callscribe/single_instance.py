@@ -5,6 +5,7 @@ import os
 import socket
 import tempfile
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,10 +46,22 @@ def _lock_path_for(app_id: str) -> Path:
 
 
 def _try_activate_existing(lock_path: Path) -> bool:
-    try:
-        data = lock_path.read_text(encoding="utf-8").strip()
-        port = int(data)
-    except (OSError, ValueError):
+    """Connect to primary port from lock file; retry briefly if the file is not filled yet."""
+    port: int | None = None
+    for _ in range(200):
+        try:
+            data = lock_path.read_text(encoding="utf-8").strip()
+            if not data:
+                time.sleep(0.05)
+                continue
+            port = int(data)
+            break
+        except ValueError:
+            time.sleep(0.05)
+            continue
+        except OSError:
+            return False
+    if port is None:
         return False
 
     try:
@@ -114,9 +127,28 @@ def ensure_single_instance(
     lock_path = _lock_path_for(app_id)
 
     for _ in range(2):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            port = int(server.getsockname()[1])
+        except OSError:
+            try:
+                server.close()
+            except OSError:
+                pass
+            continue
+
         try:
             fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
+            try:
+                server.close()
+            except OSError:
+                pass
+            if _try_activate_existing(lock_path):
+                return None
+            time.sleep(0.15)
             if _try_activate_existing(lock_path):
                 return None
             try:
@@ -125,12 +157,20 @@ def ensure_single_instance(
                 return None
             continue
 
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.bind(("127.0.0.1", 0))
-            server.listen(1)
-            port = server.getsockname()[1]
-            f.write(str(port))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(str(port))
+                f.flush()
+        except OSError:
+            try:
+                server.close()
+            except OSError:
+                pass
+            try:
+                lock_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            continue
 
         stop = threading.Event()
         t = threading.Thread(
