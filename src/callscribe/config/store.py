@@ -6,6 +6,8 @@ from pathlib import Path
 
 import tomlkit
 
+from callscribe.config.settings import AppSettings
+
 
 def _default_config_path() -> Path:
     appdata = os.environ.get("APPDATA")
@@ -30,6 +32,34 @@ class TomlConfigStore:
 
         doc = self._read()
         doc["output_folder"] = str(p)
+        self.path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+
+    def get_loopback_speaker_name(self) -> str | None:
+        doc = self._read()
+        value = doc.get("loopback_speaker_name")
+        if value is None or value == "":
+            return None
+        return str(value)
+
+    def get_microphone_name(self) -> str | None:
+        doc = self._read()
+        value = doc.get("microphone_name")
+        if value is None or value == "":
+            return None
+        return str(value)
+
+    def save_settings(self, settings: AppSettings) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        doc = self._read()
+        doc["output_folder"] = str(Path(settings.output_folder))
+        if settings.loopback_speaker_name:
+            doc["loopback_speaker_name"] = settings.loopback_speaker_name
+        else:
+            doc.pop("loopback_speaker_name", None)
+        if settings.microphone_name:
+            doc["microphone_name"] = settings.microphone_name
+        else:
+            doc.pop("microphone_name", None)
         self.path.write_text(tomlkit.dumps(doc), encoding="utf-8")
 
     def _read(self) -> tomlkit.TOMLDocument:
