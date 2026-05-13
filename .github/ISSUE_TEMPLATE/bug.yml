@@ -1,0 +1,59 @@
+name: Bug report
+description: Defect or regression (see docs/bugs.md)
+body:
+  - type: markdown
+    attributes:
+      value: |
+        See [docs/bugs.md](https://github.com/Polterageist/callscribe/blob/main/docs/bugs.md) for how we document bugs.
+        Add this issue to Project **Callscribe** and set **Priority** / **Severity** there — do not use labels for priority.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line gist
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What you observe
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: Correct behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps, or “cannot reproduce” + conditions
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Callscribe version/commit, relevant settings
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Paste logs in a fenced block in the preview if needed
+      render: false
+    validations:
+      required: false
+  - type: input
+    id: related
+    attributes:
+      label: Related epic/story
+      description: Optional issue number or backlog key (E1.S1)
+      placeholder: "#12 or E2-B1"
+    validations:
+      required: false

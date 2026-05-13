@@ -1,0 +1,40 @@
+name: Backlog epic
+description: Epic aligned with docs/backlog-v1.md (v1 Windows tray)
+title: "[Epic] "
+labels:
+  - backlog-v1
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use for v1 epics from [docs/backlog-v1.md](https://github.com/Polterageist/callscribe/blob/main/docs/backlog-v1.md).
+        After creation, add the issue to GitHub Project **Callscribe** if needed.
+  - type: input
+    id: epic_id
+    attributes:
+      label: Epic id
+      description: e.g. E3
+      placeholder: E1
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One short paragraph — outcome of this epic
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: Stories in this epic
+      description: Story keys (E3.S1, …) or links to child issues
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Dependencies, risks (optional)
+    validations:
+      required: false
